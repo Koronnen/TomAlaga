@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "75326693891",
+    "project_id": "tomalaga-1ee3f",
+    "storage_bucket": "tomalaga-1ee3f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:75326693891:android:c8656fdafe2baec290e436",
+        "android_client_info": {
+          "package_name": "com.example.tomalaga"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQeMtM5D53rl74QHp8HJVYvWpYFAqezRk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
