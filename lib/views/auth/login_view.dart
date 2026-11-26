@@ -3,8 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../controllers/auth_controller.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'sign_up_view.dart';
-import 'verify_email_view.dart';
-import 'test_home_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -44,20 +42,7 @@ class _LoginViewState extends State<LoginView> {
       final user = FirebaseAuth.instance.currentUser;
       if (!mounted || user == null) return;
 
-      if (!user.emailVerified) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => VerifyEmailView(controller: _authController),
-          ),
-        );
-        return;
-      }
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => TestHomeView(controller: _authController),
-        ),
-      );
+      Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

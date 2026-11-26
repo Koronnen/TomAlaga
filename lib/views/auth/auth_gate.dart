@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:tomalaga/views/auth/homepage_view.dart';
+import 'package:tomalaga/views/auth/landing_view.dart';
 import '../../controllers/auth_controller.dart';
 import 'verify_email_view.dart';
 import 'test_home_view.dart';
@@ -23,7 +23,7 @@ class AuthGate extends StatelessWidget {
 
         final user = snapshot.data;
         if (user == null) {
-          return const HomePage();
+          return const LandingPage();
         }
 
         if (!user.emailVerified) {

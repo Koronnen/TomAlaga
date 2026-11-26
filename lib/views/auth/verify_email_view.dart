@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../controllers/auth_controller.dart';
-import 'test_home_view.dart';
 
 class VerifyEmailView extends StatefulWidget {
   final AuthController controller;
@@ -36,11 +35,6 @@ class _VerifyEmailViewState extends State<VerifyEmailView> {
     final verified = await widget.controller.checkEmailVerifiedAndSaveProfile();
     if (verified && mounted) {
       _timer?.cancel();
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => TestHomeView(controller: widget.controller),
-        ),
-      );
     }
   }
 
