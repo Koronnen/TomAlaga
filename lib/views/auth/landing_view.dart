@@ -3,14 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'login_view.dart';
 import 'sign_up_view.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class LandingPage extends StatefulWidget {
+  const   LandingPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<LandingPage> createState() => _LandingPageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _LandingPageState extends State<LandingPage> {
 
   //Text Outline
   Widget _outlineText(String text){
