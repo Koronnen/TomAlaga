@@ -3,7 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tomalaga/views/auth/landing_view.dart';
 import '../../controllers/auth_controller.dart';
 import 'verify_email_view.dart';
-import 'test_home_view.dart';
+//import 'test_home_view.dart';
+import '../map/campus_map_view.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -30,7 +31,7 @@ class AuthGate extends StatelessWidget {
           return VerifyEmailView(controller: authController);
         }
 
-        return TestHomeView(controller: authController);
+        return CampusMapView();
       },
     );
   }
