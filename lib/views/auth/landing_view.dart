@@ -4,7 +4,7 @@ import 'login_view.dart';
 import 'sign_up_view.dart';
 
 class LandingPage extends StatefulWidget {
-  const   LandingPage({super.key});
+  const LandingPage({super.key});
 
   @override
   State<LandingPage> createState() => _LandingPageState();
