@@ -94,6 +94,9 @@ class AuthController {
     return false;
   }
 
+  @Deprecated(
+      'Use CareIndexController.awardPoints instead. This method skips the '
+      'care_index_logs audit trail and the completedQuestsCount update.')
   Future<void> incrementCareIndex(String uid, int points) async {
     await _firestore.collection('users').doc(uid).update({
       'careIndex': FieldValue.increment(points),
