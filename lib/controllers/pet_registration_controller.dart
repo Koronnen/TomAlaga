@@ -1,14 +1,17 @@
 import 'dart:typed_data';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/pet_model.dart';
 
+/// Pet records live in Cloud Firestore (`pets` collection).
+/// Supabase Storage is used only to host the cat photo.
 class PetRegistrationController extends ChangeNotifier {
   static const String bucketName = 'TomAlaga-public';
-  static const String tableName = 'pets';
+  static const String collectionName = 'pets';
 
   // Words ignored when comparing descriptions.
   static const Set<String> _stopWords = {
@@ -17,16 +20,19 @@ class PetRegistrationController extends ChangeNotifier {
     'ang', 'ng', 'na', 'sa', 'at', 'mga', 'yung', 'pusa', 'may', 'ay',
   };
 
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final SupabaseClient _supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
 
   bool isLoading = false;
   String? errorMessage;
-  List<PetModel> petsList = [];
   List<PetModel> potentialDuplicates = [];
 
   Uint8List? selectedImageBytes;
   String? selectedImageName;
+
+  CollectionReference<Map<String, dynamic>> get _pets =>
+      _firestore.collection(collectionName);
 
   void _setLoading(bool value) {
     isLoading = value;
@@ -44,6 +50,7 @@ class PetRegistrationController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Works on Web and Android/iOS because it only relies on XFile.readAsBytes().
   Future<void> pickImage() async {
     try {
       errorMessage = null;
@@ -77,31 +84,28 @@ class PetRegistrationController extends ChangeNotifier {
   }
 
   /// Finds existing (non-rejected) cats whose name is similar, OR whose
-  /// campus location is similar AND whose description shares at least
-  /// two keywords with the new description.
+  /// location is similar AND whose description shares at least two keywords
+  /// with the new description.
   Future<List<PetModel>> checkDuplicates({
     required String name,
-    required String campusLocation,
+    required String location,
     required String description,
   }) async {
     _setLoading(true);
     errorMessage = null;
     potentialDuplicates = [];
     try {
-      final data = await _supabase
-          .from(tableName)
-          .select()
-          .neq('verification_status', 'rejected');
-
-      final candidates = (data as List)
-          .map((row) => PetModel.fromMap(Map<String, dynamic>.from(row)))
+      final snapshot = await _pets.get();
+      final candidates = snapshot.docs
+          .map(PetModel.fromFirestore)
+          .where((pet) => pet.verificationStatus != 'rejected')
           .toList();
 
       final newKeywords = _keywords(description);
 
       potentialDuplicates = candidates.where((pet) {
         final nameMatch = _similar(pet.name, name);
-        final sameLocation = _similar(pet.campusLocation, campusLocation);
+        final sameLocation = _similar(pet.location, location);
         final overlap =
             _keywords(pet.description).intersection(newKeywords).length;
         return nameMatch || (sameLocation && overlap >= 2);
@@ -135,22 +139,27 @@ class PetRegistrationController extends ChangeNotifier {
     }
   }
 
-  /// Uploads the photo (if any), then inserts the cat with status 'pending'.
+  /// 1) Uploads the photo (if any) to Supabase Storage.
+  /// 2) Saves the cat to Firestore with verificationStatus 'pending'.
+  /// If step 2 fails, the uploaded photo is removed from Supabase Storage.
   /// Returns true on success.
   Future<bool> registerPet({
     required String name,
     required String description,
-    required String campusLocation,
+    required String location,
     required String neutered,
-    required String vaccinationStatus,
+    required String vaccination,
     required String condition,
   }) async {
     _setLoading(true);
     errorMessage = null;
-    try {
-      String photoUrl = '';
 
-      if (selectedImageBytes != null) {
+    String imageUrl = '';
+    String? uploadedPath;
+
+    // Step 1: photo -> Supabase Storage
+    if (selectedImageBytes != null) {
+      try {
         final ext = _extensionOf(selectedImageName ?? 'photo.jpg');
         final path = 'pets/${DateTime.now().millisecondsSinceEpoch}.$ext';
         await _supabase.storage.from(bucketName).uploadBinary(
@@ -161,50 +170,68 @@ class PetRegistrationController extends ChangeNotifier {
                 upsert: false,
               ),
             );
-        photoUrl = _supabase.storage.from(bucketName).getPublicUrl(path);
+        uploadedPath = path;
+        imageUrl = _supabase.storage.from(bucketName).getPublicUrl(path);
+      } catch (e) {
+        errorMessage = 'Photo upload failed: $e';
+        _setLoading(false);
+        return false;
       }
+    }
 
-      final vaccines = vaccinationStatus.trim();
-
+    // Step 2: record -> Cloud Firestore
+    try {
+      final vaccines = vaccination.trim();
       final pet = PetModel(
         name: name.trim(),
         description: description.trim(),
-        campusLocation: campusLocation.trim(),
+        location: location.trim(),
         neutered: neutered,
-        vaccinationStatus: vaccines.isEmpty ? 'Unknown' : vaccines,
+        vaccination: vaccines.isEmpty ? 'Unknown' : vaccines,
         condition: condition.trim(),
-        photoUrl: photoUrl,
+        imageUrl: imageUrl,
         verificationStatus: 'pending',
       );
 
-      await _supabase.from(tableName).insert(pet.toMap());
+      await _pets.add(pet.toMap());
 
       selectedImageBytes = null;
       selectedImageName = null;
       _setLoading(false);
       return true;
     } catch (e) {
-      errorMessage = 'Failed to register cat: $e';
+      var message = 'Failed to save cat: $e';
+
+      // Roll back the uploaded photo so no orphaned file remains.
+      if (uploadedPath != null) {
+        var removed = false;
+        try {
+          final result =
+              await _supabase.storage.from(bucketName).remove([uploadedPath]);
+          // Supabase returns an empty list (no error) if nothing was deleted,
+          // e.g. when the bucket has no DELETE policy.
+          removed = result.isNotEmpty;
+        } catch (_) {
+          removed = false;
+        }
+        if (!removed) {
+          message += '\nThe uploaded photo could not be removed '
+              'automatically ($uploadedPath).';
+        }
+      }
+
+      errorMessage = message;
       _setLoading(false);
       return false;
     }
   }
 
-  Future<void> fetchPets() async {
-    _setLoading(true);
-    errorMessage = null;
-    try {
-      final data = await _supabase
-          .from(tableName)
-          .select()
-          .order('created_at', ascending: false);
-      petsList = (data as List)
-          .map((row) => PetModel.fromMap(Map<String, dynamic>.from(row)))
-          .toList();
-    } catch (e) {
-      errorMessage = 'Failed to load cats: $e';
-    }
-    _setLoading(false);
+  /// Live directory, newest first.
+  Stream<List<PetModel>> streamPets() {
+    return _pets
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(PetModel.fromFirestore).toList());
   }
 
   /// [status] must be 'verified' or 'rejected'.
@@ -217,14 +244,7 @@ class PetRegistrationController extends ChangeNotifier {
     _setLoading(true);
     errorMessage = null;
     try {
-      await _supabase
-          .from(tableName)
-          .update({'verification_status': status}).eq('id', id);
-
-      final index = petsList.indexWhere((p) => p.id == id);
-      if (index != -1) {
-        petsList[index] = petsList[index].copyWith(verificationStatus: status);
-      }
+      await _pets.doc(id).update({'verificationStatus': status});
       _setLoading(false);
       return true;
     } catch (e) {

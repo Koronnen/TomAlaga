@@ -12,6 +12,7 @@ class PetRegistrationView extends StatefulWidget {
 
 class _PetRegistrationViewState extends State<PetRegistrationView> {
   final PetRegistrationController _controller = PetRegistrationController();
+  late final Stream<List<PetModel>> _petsStream = _controller.streamPets();
   final _formKey = GlobalKey<FormState>();
 
   final _nameController = TextEditingController();
@@ -23,12 +24,6 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
   static const _neuteredOptions = ['Yes', 'No', 'Unknown'];
 
   String _neutered = 'Unknown';
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.fetchPets();
-  }
 
   @override
   void dispose() {
@@ -63,7 +58,7 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
                 (pet) => ListTile(
                   title: Text(pet.name),
                   subtitle: Text(
-                    'Location: ${pet.campusLocation}\n'
+                    'Location: ${pet.location}\n'
                     'Description: ${pet.description}\n'
                     'Status: ${pet.verificationStatus}',
                   ),
@@ -105,7 +100,7 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
 
     final matches = await _controller.checkDuplicates(
       name: _nameController.text,
-      campusLocation: _locationController.text,
+      location: _locationController.text,
       description: _descriptionController.text,
     );
     if (!mounted) return;
@@ -123,9 +118,9 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
     final success = await _controller.registerPet(
       name: _nameController.text,
       description: _descriptionController.text,
-      campusLocation: _locationController.text,
+      location: _locationController.text,
       neutered: _neutered,
-      vaccinationStatus: _vaccinationController.text,
+      vaccination: _vaccinationController.text,
       condition: _conditionController.text,
     );
     if (!mounted) return;
@@ -133,7 +128,6 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
     if (success) {
       _resetForm();
       _showMessage('Cat registered. Verification is pending.');
-      await _controller.fetchPets();
     } else {
       _showMessage(_controller.errorMessage ?? 'Registration failed.');
     }
@@ -238,9 +232,9 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (pet.photoUrl.isNotEmpty)
+            if (pet.imageUrl.isNotEmpty)
               Image.network(
-                pet.photoUrl,
+                pet.imageUrl,
                 height: 150,
                 errorBuilder: (context, error, stack) =>
                     const Text('Photo could not be loaded'),
@@ -250,9 +244,9 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
             const SizedBox(height: 8),
             Text('Name: ${pet.name}'),
             Text('Description: ${pet.description}'),
-            Text('Location: ${pet.campusLocation}'),
+            Text('Location: ${pet.location}'),
             Text('Neutered: ${pet.neutered}'),
-            Text('Vaccination: ${pet.vaccinationStatus}'),
+            Text('Vaccination: ${pet.vaccination}'),
             Text('Condition: ${pet.condition}'),
             Text('Verification Status: ${pet.verificationStatus}'),
             if (pet.verificationStatus == 'pending') ...[
@@ -282,32 +276,32 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
   }
 
   Widget _buildDirectoryTab() {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8),
-          child: ElevatedButton(
-            onPressed: _controller.isLoading ? null : _controller.fetchPets,
-            child: const Text('Refresh'),
-          ),
-        ),
-        if (_controller.isLoading) const LinearProgressIndicator(),
-        if (_controller.errorMessage != null)
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(_controller.errorMessage!),
-          ),
-        Expanded(
-          child: _controller.petsList.isEmpty
-              ? const Center(child: Text('No cats registered yet.'))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: _controller.petsList.length,
-                  itemBuilder: (context, index) =>
-                      _buildPetCard(_controller.petsList[index]),
-                ),
-        ),
-      ],
+    return StreamBuilder<List<PetModel>>(
+      stream: _petsStream,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Failed to load cats: ${snapshot.error}'));
+        }
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final pets = snapshot.data!;
+        return Column(
+          children: [
+            if (_controller.isLoading) const LinearProgressIndicator(),
+            Expanded(
+              child: pets.isEmpty
+                  ? const Center(child: Text('No cats registered yet.'))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: pets.length,
+                      itemBuilder: (context, index) =>
+                          _buildPetCard(pets[index]),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
