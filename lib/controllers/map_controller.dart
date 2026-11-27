@@ -1,73 +1,213 @@
+import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/map_pin_model.dart';
+import '../models/pet_model.dart';
 import '../utils/campus_map_landmark_constants.dart';
 
 enum MapLayerFilter { all, bowls, cats }
 
 class MapController extends ChangeNotifier {
+  final FirebaseFirestore _firestore;
+
+  MapController({FirebaseFirestore? firestore})
+      : _firestore = firestore ?? FirebaseFirestore.instance;
+
   MapLayerFilter layerFilter = MapLayerFilter.all;
   String selectedZoneId = 'all';
-  PinPlacementMode placementMode = PinPlacementMode.none; //default, dapat pindutin nila
+  PinPlacementMode placementMode = PinPlacementMode.none;
   PinType newPinType = PinType.cat;
   MapPinModel? draftPin;
 
+  bool isLoading = true;
+  String? errorMessage;
+
   List<CampusLandmark> get landmarks => CampusMapLandmarkConstants.ustLandmarks;
 
-  final List<MapPinModel> _pins = [
-    MapPinModel(
-      id: 'bowl_1',
-      type: PinType.bowl,
-      title: 'Botanical Gate Station',
-      zoneId: 'zone_1_nw',
-      zoneName: MapPinModel.zones['zone_1_nw']!,
-      nearestLandmark: 'Botanical Garden',
-      mapX: 0.35,
-      mapY: 0.42,
-      subtitle: 'Daily 7:30 AM & 4:30 PM • Kibble & water',
-      updatedAt: DateTime.now(),
-    ),
-    MapPinModel(
-      id: 'cat_1',
-      type: PinType.cat,
-      title: 'Mingming (Sample)',
-      zoneId: 'zone_1_nw',
-      zoneName: MapPinModel.zones['zone_1_nw']!,
-      nearestLandmark: 'UST Church',
-      mapX: 0.27,
-      mapY: 0.44,
-      subtitle: 'Spotted near path • Due for weekly check-in',
-      needsHealthCheck: true,
-      updatedAt: DateTime.now().subtract(const Duration(days: 8)),
-    ),
-    MapPinModel(
-      id: 'cat_2',
-      type: PinType.cat,
-      title: 'Calico Sighting #2',
-      zoneId: 'zone_6_se',
-      zoneName: MapPinModel.zones['zone_6_se']!,
-      nearestLandmark: 'Roque Ruano Building',
-      mapX: 0.82,
-      mapY: 0.78,
-      subtitle: 'Resting near shaded wall',
-      needsHealthCheck: false,
-      updatedAt: DateTime.now().subtract(const Duration(minutes: 45)),
-    ),
-  ];
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _petsSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _bowlsSub;
+
+  final Map<String, PetModel> _verifiedPetsById = {};
+  List<MapPinModel> _petPins = [];
+  List<MapPinModel> _bowlPins = [];
+
+  List<MapPinModel> get _allPins => [..._bowlPins, ..._petPins];
 
   List<MapPinModel> get filteredPins {
-    return _pins.where((pin) {
-      final layerMatch = switch (layerFilter) {
+    return _allPins.where((pin) {
+      final matchesLayer = switch (layerFilter) {
         MapLayerFilter.all => true,
         MapLayerFilter.bowls => pin.type == PinType.bowl,
         MapLayerFilter.cats => pin.type == PinType.cat,
       };
-      final zoneMatch = selectedZoneId == 'all' || pin.zoneId == selectedZoneId;
-      return layerMatch && zoneMatch;
+      final matchesZone =
+          selectedZoneId == 'all' || pin.zoneId == selectedZoneId;
+      return matchesLayer && matchesZone;
     }).toList();
   }
 
   List<MapPinModel> get healthCheckPins {
-    return _pins.where((pin) => pin.type == PinType.cat && pin.needsHealthCheck).toList();
+    return _petPins.where((pin) => pin.needsHealthCheck).toList();
+  }
+
+  PetModel? getPetById(String? petId) {
+    if (petId == null) return null;
+    return _verifiedPetsById[petId];
+  }
+
+  void startListening() {
+    _petsSub?.cancel();
+    _bowlsSub?.cancel();
+
+    _petsSub = _firestore
+        .collection('pets')
+        .where('verificationStatus', isEqualTo: 'verified')
+        .snapshots()
+        .listen(
+      (snapshot) {
+        _verifiedPetsById.clear();
+        final nextPetPins = <MapPinModel>[];
+
+        for (final doc in snapshot.docs) {
+          final pet = PetModel.fromMap(doc.data(), id: doc.id);
+          _verifiedPetsById[doc.id] = pet;
+
+          if (pet.mapX == null || pet.mapY == null) continue;
+
+          final (detectedZoneId, detectedZoneName) =
+              MapPinModel.detectZone(pet.mapX!, pet.mapY!);
+          final resolvedZoneId =
+              (pet.zoneId != null && pet.zoneId!.isNotEmpty)
+                  ? pet.zoneId!
+                  : detectedZoneId;
+          final resolvedZoneName =
+              MapPinModel.zones[resolvedZoneId] ?? detectedZoneName;
+          final nearestLandmark = _resolveLandmarkName(pet) ??
+              MapPinModel.findNearestLandmark(
+                pet.mapX!,
+                pet.mapY!,
+                landmarks,
+              );
+
+          final lastSeen = pet.lastUpdated ?? pet.createdAt;
+          final overdueCheck = lastSeen == null ||
+              DateTime.now().difference(lastSeen).inDays >= 7;
+
+          nextPetPins.add(
+            MapPinModel(
+              id: 'pet_${doc.id}',
+              type: PinType.cat,
+              title: pet.name,
+              zoneId: resolvedZoneId,
+              zoneName: resolvedZoneName,
+              nearestLandmark: nearestLandmark,
+              mapX: pet.mapX!,
+              mapY: pet.mapY!,
+              subtitle: pet.location,
+              linkedPetId: doc.id,
+              needsHealthCheck: overdueCheck,
+              updatedAt: lastSeen ?? DateTime.now(),
+            ),
+          );
+        }
+
+        _petPins = nextPetPins;
+        isLoading = false;
+        errorMessage = null;
+        notifyListeners();
+      },
+      onError: (err) {
+        isLoading = false;
+        errorMessage = 'Failed to load verified pets: $err';
+        notifyListeners();
+      },
+    );
+
+    _bowlsSub = _firestore
+        .collection('map_pins')
+        .where('type', isEqualTo: 'bowl')
+        .snapshots()
+        .listen(
+      (snapshot) {
+        _bowlPins = snapshot.docs.map((doc) {
+          final data = doc.data();
+          final x = (data['mapX'] as num?)?.toDouble() ?? 0.5;
+          final y = (data['mapY'] as num?)?.toDouble() ?? 0.5;
+          final (zoneId, zoneName) = MapPinModel.detectZone(x, y);
+          return MapPinModel(
+            id: doc.id,
+            type: PinType.bowl,
+            title: (data['title'] ?? 'Feeding Station').toString(),
+            zoneId: (data['zoneId'] ?? zoneId).toString(),
+            zoneName: (data['zone'] ?? zoneName).toString(),
+            nearestLandmark:
+                MapPinModel.findNearestLandmark(x, y, landmarks),
+            mapX: x,
+            mapY: y,
+            subtitle: (data['notes'] ?? '').toString(),
+            updatedAt:
+                (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          );
+        }).toList();
+        notifyListeners();
+      },
+      onError: (err) {
+        isLoading = false;
+        errorMessage = 'Failed to load feeding stations: $err';
+        notifyListeners();
+      },
+    );
+  }
+
+  String? _resolveLandmarkName(PetModel pet) {
+    final landmarkId = pet.landmarkId;
+    if (landmarkId == null || landmarkId.isEmpty) return null;
+    for (final lm in landmarks) {
+      if (lm.id == landmarkId) return lm.name;
+    }
+    return null;
+  }
+
+  Future<void> updatePetSighting({
+    required String petId,
+    required String location,
+    required double mapX,
+    required double mapY,
+    required String zoneId,
+    String landmarkId = '',
+  }) async {
+    await _firestore.collection('pets').doc(petId).update({
+      'location': location.trim(),
+      'mapX': mapX,
+      'mapY': mapY,
+      'zoneId': zoneId,
+      'landmarkId': landmarkId,
+      'lastUpdated': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> addBowlStation({
+    required double x,
+    required double y,
+    required String title,
+    required String notes,
+    required String updatedBy,
+  }) async {
+    final (zoneId, zoneName) = MapPinModel.detectZone(x, y);
+    await _firestore.collection('map_pins').add({
+      'type': PinType.bowl.name,
+      'title': title.trim().isEmpty ? 'Feeding Station' : title.trim(),
+      'zone': zoneName,
+      'zoneId': zoneId,
+      'mapX': x,
+      'mapY': y,
+      'notes': notes.trim(),
+      'updatedBy': updatedBy,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    placementMode = PinPlacementMode.none;
+    draftPin = null;
+    notifyListeners();
   }
 
   void setLayerFilter(MapLayerFilter filter) {
@@ -80,7 +220,7 @@ class MapController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void togglePlacementMode({PinType? type}){
+  void togglePlacementMode({PinType? type}) {
     if (type != null) newPinType = type;
     if (placementMode == PinPlacementMode.none) {
       placementMode = PinPlacementMode.centerPin;
@@ -99,14 +239,9 @@ class MapController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setNewPinType(PinType type) {
-    newPinType = type;
-    notifyListeners();
-  }
-
   void updateDraftCoordinate(double x, double y) {
     final (zoneId, zoneName) = MapPinModel.detectZone(x, y);
-    final landmark = MapPinModel.findNearestLandmark(x, y, CampusMapLandmarkConstants.ustLandmarks);
+    final landmark = MapPinModel.findNearestLandmark(x, y, landmarks);
     draftPin = MapPinModel(
       id: 'draft',
       type: newPinType,
@@ -122,34 +257,10 @@ class MapController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addPin({
-    required double x,
-    required double y,
-    required PinType type,
-    required String title,
-    required String subtitle,
-    String? linkedPetId
-  }) {
-    final (zoneId, zoneName) = MapPinModel.detectZone(x, y);
-    final landmark = MapPinModel.findNearestLandmark(x, y, CampusMapLandmarkConstants.ustLandmarks);
-
-    _pins.add(
-      MapPinModel(
-        id: 'pin_${DateTime.now().millisecondsSinceEpoch}', //YES im using it
-        type: type,
-        title: title.trim().isEmpty ? (type == PinType.bowl ? 'Feeding Bowl' : 'Cat Sighting') : title.trim(), // in case walang nilagay.. although this will prolly be a radio button or sumn
-        zoneId: zoneId,
-        zoneName: zoneName,
-        nearestLandmark: landmark,
-        mapX: x,
-        mapY: y,
-        subtitle: subtitle.trim(),
-        linkedPetId: linkedPetId,
-        updatedAt: DateTime.now(),
-      ),
-    );
-    placementMode = PinPlacementMode.none;
-    draftPin = null; //not a draft anymore
-    notifyListeners();
+  @override
+  void dispose() {
+    _petsSub?.cancel();
+    _bowlsSub?.cancel();
+    super.dispose();
   }
 }
