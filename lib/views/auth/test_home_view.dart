@@ -55,23 +55,22 @@ class _TestHomeViewState extends State<TestHomeView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text('Email: ${user.email}'),
-        Text('Status: ${user.status}'),
         Text('Role: ${user.role}'),
+        Text('Trust Tier: ${user.trustTier.label}'),
         Text(
           'Care Index: ${user.careIndex}',
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         Text('Completed Quests: ${user.completedQuestsCount}'),
-        Text('Care Tier: ${user.careTier}'),
-        if (user.nextTier != null)
-          Text('${user.pointsToNextTier} points to ${user.nextTier}')
-        else
-          const Text('Highest tier reached'),
         const SizedBox(height: 8),
         const Text('Unlocked privileges:'),
-        ...user.unlockedPrivileges.map((p) => Text('- $p')),
-        Text('Can edit pet info: ${user.canEditPetInfo ? 'Yes' : 'No'}'),
-        Text('Can add pets: ${user.canAddPets ? 'Yes' : 'No'}'),
+        Text('- Participate: ${user.canParticipate ? 'Yes' : 'No'}'),
+        Text('- Edit pet details: ${user.canEditPetDetails ? 'Yes' : 'No'}'),
+        Text('- Register pets: ${user.canRegisterPets ? 'Yes' : 'No'}'),
+        Text('- Apply for adoption: ${user.canApplyForAdoption ? 'Yes' : 'No'}'),
+        Text('- Max concurrent tasks: ${user.maxConcurrentTasks}'),
+        if (user.pointsToNextTier > 0)
+          Text('${user.pointsToNextTier} points to the next tier'),
       ],
     );
   }

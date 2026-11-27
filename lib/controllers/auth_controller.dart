@@ -78,7 +78,6 @@ class AuthController {
       final newUser = AppUser(
         uid: refreshedUser.uid,
         email: refreshedUser.email ?? '',
-        status: 'pending',
         role: 'volunteer',
         completedQuestsCount: 0,
         careIndex: 0,
