@@ -184,7 +184,7 @@ class _CampusMapViewState extends State<CampusMapView> {
 
               Expanded(
                 child: CampusMapCanvas(
-                  mapPath: 'assets/maps/ust_campus_map_cropped.svg',
+                  mapPath: 'assets/maps/ust_campus_map.png',
                   pins: _controller.filteredPins,
                   draftPin: _controller.draftPin,
                   placementMode: _controller.placementMode,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../models/map_pin_model.dart';
 
 class CampusMapCanvas extends StatefulWidget {
@@ -17,7 +16,7 @@ class CampusMapCanvas extends StatefulWidget {
 
   const CampusMapCanvas({
     super.key,
-    this.mapPath = 'assets/maps/user_campus_map_cropped.svg',
+    this.mapPath = 'assets/maps/ust_campus_map.png',
     this.pins = const [],
     this.draftPin,
     this.placementMode = PinPlacementMode.none,
@@ -62,7 +61,7 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
     if (_mapSize <= 1 || _viewportHeight <= 1 || _viewportWidth <= 1) return;
 
     final inverse = Matrix4.inverted(_transformController.value);
-    final viewportCenter = Offset(_viewportWidth / 2, _viewportHeight / 2);
+    final viewportCenter = Offset(_mapSize / 2, _mapSize / 2);
     final mapPoint = MatrixUtils.transformPoint(inverse, viewportCenter);
 
     final nx = (mapPoint.dx / _mapSize).clamp(0.0, 1.0);
@@ -73,8 +72,6 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
         _centerNormX = nx;
         _centerNormY = ny;
       });
-      // Removed onDraftChanged call — zone/landmark info is computed
-      // locally in build(), avoiding a double-rebuild through the controller.
     }
   }
 
@@ -113,6 +110,7 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
             Center(
               child: InteractiveViewer(
                 transformationController: _transformController,
+                boundaryMargin: EdgeInsets.all(_mapSize / 2),
                 minScale: 1.0,
                 maxScale: 5.0,
                 constrained: false,
@@ -131,7 +129,7 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
                     child: Stack(
                       children: [
                         RepaintBoundary(
-                          child: SvgPicture.asset(
+                          child: Image.asset(
                             widget.mapPath,
                             width: _mapSize,
                             height: _mapSize,
