@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tomalaga/views/auth/login_view.dart';
 import '../../controllers/auth_controller.dart';
 import 'verify_email_view.dart';
 
@@ -101,7 +102,7 @@ class _SignUpViewState extends State<SignUpView> {
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           children: [
-                            SizedBox(height: 40),
+                            SizedBox(height: 30),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.center,
@@ -123,13 +124,13 @@ class _SignUpViewState extends State<SignUpView> {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 70),
+                            SizedBox(height: 50),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  SizedBox(height: 20),
+                  SizedBox(height: 10),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 25),
                     child: Form(
@@ -216,6 +217,19 @@ class _SignUpViewState extends State<SignUpView> {
                                 height: 20, width: 20,
                                 child: CircularProgressIndicator(strokeWidth: 2))
                                 : Text('Sign Up', style: GoogleFonts.inter(fontSize: 18, color: Colors.black)),
+                            ),
+                          ),
+                          const SizedBox(height: 35),
+                          Center(
+                            child: TextButton(
+                              onPressed: _isLoading ? null : () {
+                                  Navigator.of(context).pushReplacement(
+                                    MaterialPageRoute(
+                                      builder: (_) => const LoginView(),
+                                    ),
+                                  );
+                                },
+                              child: Text("Already have an account? [Log-in]", style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black)),
                             ),
                           ),
                           const SizedBox(height: 35),

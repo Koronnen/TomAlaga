@@ -50,7 +50,7 @@ class AuthController {
   Future<void> signOut() async {
     await _auth.signOut();
   }
-
+  
   Future<void> signUp({
     required String email,
     required String password,
@@ -112,6 +112,8 @@ class AuthController {
         return 'Password must be at least 6 characters long.';
       case 'invalid-email':
         return 'Please enter a valid @ust.edu.ph email address.';
+      case 'requires-recent-login':
+        return 'For security, please log out and log back in before deleting your account.';
       default:
         return e.message ?? 'Sign-up failed. Please try again.';
     }

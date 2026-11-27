@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:tomalaga/views/auth/sign_up_view.dart';
+import 'package:tomalaga/views/main_navigation_view.dart';
 import '../../controllers/auth_controller.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'sign_up_view.dart';
 import 'verify_email_view.dart';
-import 'test_home_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -55,7 +55,7 @@ class _LoginViewState extends State<LoginView> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TestHomeView(controller: _authController),
+          builder: (_) => MainNavigation(),
         ),
       );
     } on FirebaseAuthException catch (e) {
