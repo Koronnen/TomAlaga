@@ -26,24 +26,6 @@ class _UserProfileState extends State<UserProfile> {
       widget.careController ?? CareIndexController();
   bool _busy = false;
 
-  Future<void> _award(String uid, CareActivityType activity) async {
-    setState(() => _busy = true);
-    try {
-      await _careController.awardPoints(
-        uid: uid,
-        activity: activity,
-        description: 'Test ${activity.label}',
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to award points: $e')),
-        );
-      }
-    }
-    if (mounted) setState(() => _busy = false);
-  }
-
   String _formatTime(DateTime? time) {
     if (time == null) return 'just now';
     final t = time.toLocal();
@@ -124,7 +106,7 @@ class _UserProfileState extends State<UserProfile> {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 223, 223, 223),
+        color: const Color.fromARGB(87, 254, 190, 15),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.black),
       ),
@@ -134,7 +116,7 @@ class _UserProfileState extends State<UserProfile> {
 
   Widget _button(String text, {Color color = const Color(0xFFFEC00F)}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color, borderRadius: BorderRadius.circular(50),
         border: Border.all(color: Colors.black),
@@ -235,7 +217,7 @@ class _UserProfileState extends State<UserProfile> {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     padding:
-                        const EdgeInsets.symmetric(vertical: 8, horizontal: 14),
+                        const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(50),
                       side: const BorderSide(color: Colors.black),
@@ -398,60 +380,6 @@ class _UserProfileState extends State<UserProfile> {
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTestActivitiesContainer(String uid) {
-    return _sectionContainer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Test Care Activities',
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              _button('DEV / TEST'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: CareActivityType.values.map((activity) {
-              return ElevatedButton(
-                onPressed: _busy ? null : () => _award(uid, activity),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  elevation: 0,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(50),
-                    side: const BorderSide(color: Colors.black),
-                  ),
-                ),
-                child: Text(
-                  '${activity.label} +${activity.defaultPoints}',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              );
-            }).toList(),
           ),
         ],
       ),
@@ -632,8 +560,6 @@ class _UserProfileState extends State<UserProfile> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildProfileContainer(user),
-                      const SizedBox(height: 16),
-                      _buildTestActivitiesContainer(uid),
                       const SizedBox(height: 16),
                       _buildProgression(uid),
                       const SizedBox(height: 20),

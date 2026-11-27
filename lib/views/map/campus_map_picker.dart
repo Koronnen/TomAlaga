@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/map_pin_model.dart';
 import 'campus_map_canvas.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Returned when the user confirms a pin inside the full-screen map overlay.
 class PickedMapLocation {
@@ -119,10 +120,12 @@ class CampusMapPickerField extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             child: AspectRatio(
               aspectRatio: 1,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: borderColor),
-                  borderRadius: BorderRadius.circular(8),
+              child: Container(
+                foregroundDecoration: BoxDecoration(
+                  border: Border.all(
+                      color: errorText != null ? Colors.white : Colors.black,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
                 ),
                 child: Stack(
                   fit: StackFit.expand,
@@ -140,12 +143,13 @@ class CampusMapPickerField extends StatelessWidget {
                       bottom: 10,
                       right: 10,
                       child: FilledButton.tonalIcon(
+                        style: FilledButton.styleFrom(backgroundColor: Color(0xFFFEC00F), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
                         onPressed: () => _openOverlay(context),
                         icon: Icon(
                           value == null ? Icons.add_location_alt : Icons.edit_location_alt,
                           size: 18,
                         ),
-                        label: Text(value == null ? 'Tap to Pin Map' : 'Adjust Pin'),
+                        label: Text(value == null ? 'Tap to Pin Map' : 'Adjust Pin', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ],

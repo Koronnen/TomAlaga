@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/map_pin_model.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class CampusMapCanvas extends StatefulWidget {
   final String mapPath;
@@ -200,76 +201,119 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
                 ),
               ),
             if (isPlacing && widget.showPlacementOverlay)
-              Positioned(
-                top: 10,
-                left: 12,
-                right: 12,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          activeLandmark != null
-                              ? 'Near $activeLandmark -- $activeZoneName'
-                              : activeZoneName,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center,
+            Positioned(
+              top: 10,
+              left: 12,
+              right: 12,
+              child: Card(
+                color: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: const BorderSide(color: Colors.black, width: 1),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        activeLandmark != null
+                            ? 'Near $activeLandmark -- $activeZoneName'
+                            : activeZoneName,
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
                         ),
-                        Text(
-                          '(${currentX.toStringAsFixed(2)}, ${currentY.toStringAsFixed(2)})',
-                          style: Theme.of(context).textTheme.bodySmall,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '(${currentX.toStringAsFixed(2)}, ${currentY.toStringAsFixed(2)})',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          color: Colors.black87,
                         ),
-                        if (widget.showModeToggle &&
-                            widget.onPlacementModeChanged != null) ...[
-                          const SizedBox(height: 8),
-                          SegmentedButton(
-                            segments: const [
-                              ButtonSegment(
-                                value: PinPlacementMode.centerPin,
-                                label: Text('Center Pin'),
-                                icon: Icon(Icons.my_location),
+                      ),
+                      if (widget.showModeToggle &&
+                          widget.onPlacementModeChanged != null) ...[
+                        const SizedBox(height: 10),
+                        SegmentedButton<PinPlacementMode>(
+                          style: ButtonStyle(
+                            backgroundColor: WidgetStateProperty.resolveWith((states) {
+                              if (states.contains(WidgetState.selected)) {
+                                return const Color(0xFFFEC00F);
+                              }
+                              return Colors.white;
+                            }),
+                            foregroundColor: const WidgetStatePropertyAll(Colors.black),
+                            side: const WidgetStatePropertyAll(
+                              BorderSide(color: Colors.black, width: 1),
+                            ),
+                            textStyle: WidgetStatePropertyAll(
+                              GoogleFonts.inter(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                               ),
-                              ButtonSegment(
-                                value: PinPlacementMode.tapToPin,
-                                label: Text('Tap Map'),
-                                icon: Icon(Icons.touch_app),
-                              ),
-                            ],
-                            selected: {widget.placementMode},
-                            onSelectionChanged: (set) =>
-                                widget.onPlacementModeChanged!(set.first),
+                            ),
                           ),
-                        ],
+                          segments: const [
+                            ButtonSegment(
+                              value: PinPlacementMode.centerPin,
+                              label: Text('Center Pin'),
+                              icon: Icon(Icons.my_location, size: 16),
+                            ),
+                            ButtonSegment(
+                              value: PinPlacementMode.tapToPin,
+                              label: Text('Tap Map'),
+                              icon: Icon(Icons.touch_app, size: 16),
+                            ),
+                          ],
+                          selected: {widget.placementMode},
+                          onSelectionChanged: (set) =>
+                              widget.onPlacementModeChanged!(set.first),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
                 ),
               ),
-            if (isPlacing &&
-                widget.showPlacementOverlay &&
-                widget.onConfirmedLocation != null)
-              Positioned(
-                bottom: 14,
-                left: 16,
-                right: 16,
-                child: FilledButton.icon(
-                  onPressed:
-                      widget.placementMode == PinPlacementMode.tapToPin &&
-                              widget.draftPin == null
-                          ? null
-                          : _handleConfirm,
-                  icon: const Icon(Icons.check),
-                  label: Text(widget.confirmButtonLabel),
+            ),
+          if (isPlacing &&
+              widget.showPlacementOverlay &&
+              widget.onConfirmedLocation != null)
+            Positioned(
+              bottom: 14,
+              left: 16,
+              right: 16,
+              child: FilledButton.icon(
+                onPressed: widget.placementMode == PinPlacementMode.tapToPin &&
+                        widget.draftPin == null
+                    ? null
+                    : _handleConfirm,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFEC00F),
+                  foregroundColor: Colors.black,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  disabledForegroundColor: Colors.black38,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                  textStyle: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(50),
+                    side: const BorderSide(color: Colors.black, width: 1),
+                  ),
                 ),
+                icon: const Icon(Icons.check, size: 18),
+                label: Text(widget.confirmButtonLabel),
               ),
+            ),
           ],
         );
       },

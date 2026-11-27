@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tomalaga/views/user_profile_view.dart';
 import '../controllers/auth_controller.dart';
 import '../views/home_view.dart';
+import '../views/map/campus_map_view.dart';
 import '../views/pet_registration_view.dart';
 
 class MainNavigation extends StatefulWidget{
@@ -14,11 +15,12 @@ class MainNavigation extends StatefulWidget{
 class _MainNavigationState extends State<MainNavigation>{
   int _currentIndex = 0;
   final AuthController _authController = AuthController();
+  
 
   late final List<Widget> _pages = [
     HomeView(controller: _authController),
     //Quests
-    //Map
+    const CampusMapView(),
     const PetRegistrationView(),
     UserProfile(controller: _authController),
   ];
@@ -48,6 +50,7 @@ class _MainNavigationState extends State<MainNavigation>{
           ),
         ),
         child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
           currentIndex: _currentIndex,
           onTap: (index) => setState(() => _currentIndex = index),
           backgroundColor: Colors.white,
@@ -59,6 +62,11 @@ class _MainNavigationState extends State<MainNavigation>{
             BottomNavigationBarItem(
               icon: _navBubble(Icons.home_outlined, isActive: false),
               activeIcon: _navBubble(Icons.home, isActive: true),
+              label: '',
+            ),
+            BottomNavigationBarItem(
+              icon: _navBubble(Icons.map_outlined, isActive: false),
+              activeIcon: _navBubble(Icons.map, isActive: true),
               label: '',
             ),
             BottomNavigationBarItem(

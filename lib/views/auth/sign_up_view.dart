@@ -146,6 +146,8 @@ class _SignUpViewState extends State<SignUpView> {
                               fillColor: const Color.fromARGB(255, 223, 223, 223),
                               labelText: 'Enter your UST Email',
                               hintText: 'name.college@ust.edu.ph',
+                              labelStyle: GoogleFonts.inter(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
+                              hintStyle: GoogleFonts.inter(color: Colors.black54, fontSize: 12),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black)),
                               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black)),
                               errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: const Color.fromARGB(255, 113, 3, 3))),
@@ -163,6 +165,7 @@ class _SignUpViewState extends State<SignUpView> {
                               filled: true,
                               fillColor: const Color.fromARGB(255, 223, 223, 223),
                               labelText: 'Enter your Password',
+                              labelStyle: GoogleFonts.inter(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black)),
                               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black)),
                               errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: const Color.fromARGB(255, 113, 3, 3))),
@@ -185,6 +188,7 @@ class _SignUpViewState extends State<SignUpView> {
                               filled: true,
                               fillColor: const Color.fromARGB(255, 223, 223, 223),
                               labelText: 'Confirm your Password',
+                              labelStyle: GoogleFonts.inter(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black)),
                               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.black)),
                               errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: const Color.fromARGB(255, 113, 3, 3))),
@@ -210,7 +214,7 @@ class _SignUpViewState extends State<SignUpView> {
                               ),
                               child: _isLoading ? const SizedBox(
                                 height: 20, width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2))
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFEC00F)))
                                 : Text('Sign Up', style: GoogleFonts.inter(fontSize: 18, color: Colors.black)),
                             ),
                           ),

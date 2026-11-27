@@ -84,7 +84,6 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
                   subtitle: Text(
                     'Location: ${pet.location}\n'
                     'Description: ${pet.description}\n'
-                    'Status: ${pet.verificationStatus}',
                   ),
                 ),
               ),
@@ -319,11 +318,12 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
                     style: _buttonStyle(),
                     child: Text('Upload Photo', style: GoogleFonts.inter(color: Colors.black, fontSize: 14)),
                   ),
+                  const SizedBox(height: 6),
                   if (_controller.selectedImageBytes != null) ...[
                     const SizedBox(height: 8),
-                    Text('Selected: ${_controller.selectedImageName ?? ''}'),
-                    const SizedBox(height: 8),
                     Image.memory(_controller.selectedImageBytes!, height: 150),
+                    const SizedBox(height: 8),
+                    Text('Selected: ${_controller.selectedImageName ?? ''}', style: GoogleFonts.inter(color: Colors.black, fontSize: 14)),
                   ],
                   const SizedBox(height: 18),
                   ElevatedButton(
@@ -333,7 +333,7 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
                   ),
                   if (_controller.isLoading) ...[
                     const SizedBox(height: 16),
-                    const Center(child: CircularProgressIndicator(color: Color(0xFFFEC00F))),
+                    const Center(child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFEC00F))),
                   ],
                   if (_controller.errorMessage != null) ...[
                     const SizedBox(height: 16),
@@ -427,43 +427,6 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
               'Condition: ${pet.condition}',
               style: GoogleFonts.inter(fontSize: 13, color: Colors.black),
             ),
-            Text(
-              'Verification Status: ${pet.verificationStatus}',
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            if (pet.verificationStatus == 'pending') ...[
-              const SizedBox(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(
-                    onPressed: _controller.isLoading
-                        ? null
-                        : () => _updateStatus(pet, 'verified'),
-                    style: _buttonStyle(backgroundColor: Color.fromARGB(245, 96, 226, 124)),
-                    child: Text(
-                      'Approve',
-                      style: GoogleFonts.inter(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: _controller.isLoading
-                        ? null
-                        : () => _updateStatus(pet, 'rejected'),
-                    style: _buttonStyle(backgroundColor: Color.fromARGB(245, 226, 96, 96)),
-                    child: Text(
-                      'Reject',
-                      style: GoogleFonts.inter(color: Colors.black, fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
         ),
       ),
@@ -540,7 +503,7 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
             labelStyle: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 13),
             tabs: const [
               Tab(text: 'Register Pet'),
-              Tab(text: 'Verify & Directory'),
+              Tab(text: 'Registered Tomasino Pets!'),
             ],
           ),
         ),
