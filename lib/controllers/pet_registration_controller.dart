@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -20,6 +19,7 @@ class PetRegistrationController extends ChangeNotifier {
     'ang', 'ng', 'na', 'sa', 'at', 'mga', 'yung', 'pusa', 'may', 'ay',
   };
 
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final SupabaseClient _supabase = Supabase.instance.client;
   final ImagePicker _picker = ImagePicker();
@@ -150,6 +150,11 @@ class PetRegistrationController extends ChangeNotifier {
     required String neutered,
     required String vaccination,
     required String condition,
+    double? mapX,
+    double? mapY,
+    String? zoneId,
+    String? landmarkId,
+    String? registeredBy,
   }) async {
     _setLoading(true);
     errorMessage = null;
@@ -182,14 +187,20 @@ class PetRegistrationController extends ChangeNotifier {
     // Step 2: record -> Cloud Firestore
     try {
       final vaccines = vaccination.trim();
+      final cleanZoneId = zoneId?.trim();
       final pet = PetModel(
         name: name.trim(),
         description: description.trim(),
         location: location.trim(),
+        mapX: mapX,
+        mapY: mapY,
+        zoneId: (cleanZoneId == null || cleanZoneId.isEmpty) ? null : cleanZoneId,
+        landmarkId: landmarkId?.trim() ?? '',
         neutered: neutered,
         vaccination: vaccines.isEmpty ? 'Unknown' : vaccines,
         condition: condition.trim(),
         imageUrl: imageUrl,
+        registeredBy: (registeredBy ?? _auth.currentUser?.uid ?? '').trim(),
         verificationStatus: 'pending',
       );
 
@@ -234,6 +245,48 @@ class PetRegistrationController extends ChangeNotifier {
         .map((snapshot) => snapshot.docs.map(PetModel.fromFirestore).toList());
   }
 
+  /// Live verified pets that have map coordinates.
+  Stream<List<PetModel>> streamPublicMapPets() {
+    return _pets
+        .where('verificationStatus', isEqualTo: 'verified')
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map(PetModel.fromFirestore)
+              .where((pet) => pet.isVisibleOnPublicMap)
+              .toList(),
+        );
+  }
+
+  /// Updates the campus map pin fields for an existing pet.
+  Future<bool> updatePetPin({
+    required String id,
+    required double mapX,
+    required double mapY,
+    String? zoneId,
+    String? landmarkId,
+  }) async {
+    _setLoading(true);
+    errorMessage = null;
+    try {
+      final cleanZoneId = zoneId?.trim();
+      await _pets.doc(id).update({
+        'mapX': mapX,
+        'mapY': mapY,
+        'zoneId':
+            (cleanZoneId == null || cleanZoneId.isEmpty) ? null : cleanZoneId,
+        'landmarkId': landmarkId?.trim() ?? '',
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      errorMessage = 'Failed to update map pin: $e';
+      _setLoading(false);
+      return false;
+    }
+  }
+
   /// [status] must be 'verified' or 'rejected'.
   Future<bool> updateVerificationStatus(String id, String status) async {
     if (status != 'verified' && status != 'rejected') {
@@ -244,7 +297,10 @@ class PetRegistrationController extends ChangeNotifier {
     _setLoading(true);
     errorMessage = null;
     try {
-      await _pets.doc(id).update({'verificationStatus': status});
+      await _pets.doc(id).update({
+        'verificationStatus': status,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
       _setLoading(false);
       return true;
     } catch (e) {

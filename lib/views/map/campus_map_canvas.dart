@@ -12,6 +12,7 @@ class CampusMapCanvas extends StatefulWidget {
   final ValueChanged<MapPinModel>? onPinTap;
   final List<CampusLandmark> landmarks;
   final bool showModeToggle;
+  final bool showPlacementOverlay;
   final String confirmButtonLabel;
 
   const CampusMapCanvas({
@@ -26,6 +27,7 @@ class CampusMapCanvas extends StatefulWidget {
     this.onPinTap,
     this.landmarks = const [],
     this.showModeToggle = true,
+    this.showPlacementOverlay = true,
     this.confirmButtonLabel = 'Confirm Pin Location',
   });
 
@@ -34,7 +36,8 @@ class CampusMapCanvas extends StatefulWidget {
 }
 
 class _CampusMapCanvasState extends State<CampusMapCanvas> {
-  final TransformationController _transformController = TransformationController();
+  final TransformationController _transformController =
+      TransformationController();
 
   double _viewportWidth = 1;
   double _viewportHeight = 1;
@@ -55,8 +58,7 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
     super.dispose();
   }
 
-  void _recomputeCenterCoordinate(){
-    // Only recompute when actively placing via center-pin mode
+  void _recomputeCenterCoordinate() {
     if (widget.placementMode != PinPlacementMode.centerPin) return;
     if (_mapSize <= 1 || _viewportHeight <= 1 || _viewportWidth <= 1) return;
 
@@ -67,7 +69,8 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
     final nx = (mapPoint.dx / _mapSize).clamp(0.0, 1.0);
     final ny = (mapPoint.dy / _mapSize).clamp(0.0, 1.0);
 
-    if ((nx - _centerNormX).abs() > 0.0005 || (ny - _centerNormY).abs() > 0.0005 ) {
+    if ((nx - _centerNormX).abs() > 0.0005 ||
+        (ny - _centerNormY).abs() > 0.0005) {
       setState(() {
         _centerNormX = nx;
         _centerNormY = ny;
@@ -78,31 +81,42 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
   void _handleConfirm() {
     if (widget.placementMode == PinPlacementMode.centerPin) {
       widget.onConfirmedLocation?.call(_centerNormX, _centerNormY);
-    } else if (widget.placementMode == PinPlacementMode.tapToPin && widget.draftPin != null) {
-      widget.onConfirmedLocation?.call(widget.draftPin!.mapX, widget.draftPin!.mapY);
+    } else if (widget.placementMode == PinPlacementMode.tapToPin &&
+        widget.draftPin != null) {
+      widget.onConfirmedLocation
+          ?.call(widget.draftPin!.mapX, widget.draftPin!.mapY);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isPlacing = widget.placementMode != PinPlacementMode.none;
-    final currentX = widget.placementMode == PinPlacementMode.centerPin ? _centerNormX : (widget.draftPin?.mapX ?? 0.5); // default to center
-    final currentY = widget.placementMode == PinPlacementMode.centerPin ? _centerNormY : (widget.draftPin?.mapY ?? 0.5);
+    final currentX = widget.placementMode == PinPlacementMode.centerPin
+        ? _centerNormX
+        : (widget.draftPin?.mapX ?? 0.5);
+    final currentY = widget.placementMode == PinPlacementMode.centerPin
+        ? _centerNormY
+        : (widget.draftPin?.mapY ?? 0.5);
 
-    // Only compute zone/landmark when actively placing a pin
     String activeZoneName = '';
     String? activeLandmark;
-    if (isPlacing) {
-      final(_, zoneName) = MapPinModel.detectZone(currentX, currentY);
+    if (isPlacing && widget.showPlacementOverlay) {
+      final (_, zoneName) = MapPinModel.detectZone(currentX, currentY);
       activeZoneName = zoneName;
-      activeLandmark = MapPinModel.findNearestLandmark(currentX, currentY, widget.landmarks);
+      activeLandmark = MapPinModel.findNearestLandmark(
+        currentX,
+        currentY,
+        widget.landmarks,
+      );
     }
 
     return LayoutBuilder(
       builder: (context, outerConstraints) {
         _viewportHeight = outerConstraints.maxHeight;
         _viewportWidth = outerConstraints.maxWidth;
-        final squareSide = _viewportWidth < _viewportHeight ? _viewportWidth : _viewportHeight; //get the longer side and take it as the side for all
+        final squareSide = _viewportWidth < _viewportHeight
+            ? _viewportWidth
+            : _viewportHeight;
         _mapSize = squareSide > 0 ? squareSide : 1;
 
         return Stack(
@@ -119,13 +133,15 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
                   height: _mapSize,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTapUp: widget.placementMode == PinPlacementMode.tapToPin 
-                                                      ? (details) {
-                                                        final nx = (details.localPosition.dx / _mapSize).clamp(0.0, 1.0);
-                                                        final ny = (details.localPosition.dy / _mapSize).clamp(0.0, 1.0);
-                                                        widget.onDraftChanged?.call(nx, ny);
-                                                      }
-                                                      : null,
+                    onTapUp: widget.placementMode == PinPlacementMode.tapToPin
+                        ? (details) {
+                            final nx = (details.localPosition.dx / _mapSize)
+                                .clamp(0.0, 1.0);
+                            final ny = (details.localPosition.dy / _mapSize)
+                                .clamp(0.0, 1.0);
+                            widget.onDraftChanged?.call(nx, ny);
+                          }
+                        : null,
                     child: Stack(
                       children: [
                         RepaintBoundary(
@@ -145,14 +161,16 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
                               onTap: () => widget.onPinTap?.call(pin),
                               child: Icon(
                                 isBowl ? Icons.rice_bowl : Icons.pets,
-                                color: isBowl ? Colors.blue.shade700 : Colors.deepOrange,
+                                color: isBowl
+                                    ? Colors.blue.shade700
+                                    : Colors.deepOrange,
                                 size: 32,
                               ),
                             ),
                           );
                         }),
-
-                        if (widget.placementMode == PinPlacementMode.tapToPin && widget.draftPin != null)
+                        if (widget.placementMode == PinPlacementMode.tapToPin &&
+                            widget.draftPin != null)
                           Positioned(
                             left: widget.draftPin!.mapX * _mapSize - 18,
                             top: widget.draftPin!.mapY * _mapSize - 36,
@@ -181,7 +199,7 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
                   ),
                 ),
               ),
-            if (isPlacing)
+            if (isPlacing && widget.showPlacementOverlay)
               Positioned(
                 top: 10,
                 left: 12,
@@ -196,56 +214,65 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          activeLandmark != null ? 'Near $activeLandmark -- $activeZoneName' : activeZoneName,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-                          textAlign: TextAlign.center
+                          activeLandmark != null
+                              ? 'Near $activeLandmark -- $activeZoneName'
+                              : activeZoneName,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          textAlign: TextAlign.center,
                         ),
-                        Text (
+                        Text(
                           '(${currentX.toStringAsFixed(2)}, ${currentY.toStringAsFixed(2)})',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        if (widget.showModeToggle && widget.onPlacementModeChanged != null)
-                          ...[
-                            const SizedBox(height: 8),
-                            SegmentedButton(
-                              segments: const [
-                                ButtonSegment(
-                                  value: PinPlacementMode.centerPin,
-                                  label: Text('Center Pin'),
-                                  icon: Icon(Icons.my_location),
-                                ),
-                                ButtonSegment(
-                                  value: PinPlacementMode.tapToPin,
-                                  label: Text('Tap Map'),
-                                  icon: Icon(Icons.touch_app),
-                                ),
-                              ],
-                              selected: {widget.placementMode},
-                              onSelectionChanged: (set) => widget.onPlacementModeChanged!(set.first),
-                            ),
-                          ],
+                        if (widget.showModeToggle &&
+                            widget.onPlacementModeChanged != null) ...[
+                          const SizedBox(height: 8),
+                          SegmentedButton(
+                            segments: const [
+                              ButtonSegment(
+                                value: PinPlacementMode.centerPin,
+                                label: Text('Center Pin'),
+                                icon: Icon(Icons.my_location),
+                              ),
+                              ButtonSegment(
+                                value: PinPlacementMode.tapToPin,
+                                label: Text('Tap Map'),
+                                icon: Icon(Icons.touch_app),
+                              ),
+                            ],
+                            selected: {widget.placementMode},
+                            onSelectionChanged: (set) =>
+                                widget.onPlacementModeChanged!(set.first),
+                          ),
+                        ],
                       ],
                     ),
                   ),
                 ),
               ),
-
-              if (isPlacing && widget.onConfirmedLocation != null)
-                Positioned(
-                  bottom: 14,
-                  left: 16,
-                  right: 16,
-                  child: FilledButton.icon(
-                    onPressed: widget.placementMode == PinPlacementMode.tapToPin && widget.draftPin == null
-                                                        ? null : _handleConfirm,
-                    icon: const Icon(Icons.check),
-                    label: Text(widget.confirmButtonLabel),
-                  ),
+            if (isPlacing &&
+                widget.showPlacementOverlay &&
+                widget.onConfirmedLocation != null)
+              Positioned(
+                bottom: 14,
+                left: 16,
+                right: 16,
+                child: FilledButton.icon(
+                  onPressed:
+                      widget.placementMode == PinPlacementMode.tapToPin &&
+                              widget.draftPin == null
+                          ? null
+                          : _handleConfirm,
+                  icon: const Icon(Icons.check),
+                  label: Text(widget.confirmButtonLabel),
                 ),
+              ),
           ],
         );
       },
     );
   }
 }
-
