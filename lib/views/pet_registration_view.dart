@@ -4,7 +4,7 @@ import '../controllers/pet_registration_controller.dart';
 import '../models/map_pin_model.dart';
 import '../models/pet_model.dart';
 import '../utils/campus_map_landmark_constants.dart';
-import 'map/campus_map_canvas.dart';
+import 'map/campus_map_picker.dart';
 
 class PetRegistrationView extends StatefulWidget {
   const PetRegistrationView({super.key});
@@ -31,9 +31,7 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
   String _neutered = 'Unknown';
   bool _locationWasAutoFilled = true;
 
-  // Single pin state for the pet being registered
-  MapPinModel? _petPin;
-  String? _selectedLandmarkId;
+  PickedMapLocation? _pickedLocation;
   String? _pinError;
 
   @override
@@ -52,51 +50,14 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  CampusLandmark? _findLandmarkByName(String? name) {
-    if (name == null) return null;
-    for (final landmark in _landmarks) {
-      if (landmark.name == name) return landmark;
-    }
-    return null;
-  }
-
-  Future<void> _openMapPickerOverlay() async {
-    final result = await Navigator.of(context).push<(double, double)>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => _PetPinPickerOverlay(
-          initialPin: _petPin,
-          landmarks: _landmarks,
-        ),
-      ),
-    );
-
-    if (result == null || !mounted) return;
-
-    final (normX, normY) = result;
-    final (zoneId, zoneName) = MapPinModel.detectZone(normX, normY);
-    final nearestName =
-        MapPinModel.findNearestLandmark(normX, normY, _landmarks);
-    final matchedLandmark = _findLandmarkByName(nearestName);
-
+  void _handleLocationPicked(PickedMapLocation picked) {
     setState(() {
-      _selectedLandmarkId = matchedLandmark?.id;
+      _pickedLocation = picked;
       _pinError = null;
-      _petPin = MapPinModel(
-        id: 'registering_pet_pin',
-        type: PinType.cat,
-        title: _nameController.text.trim(),
-        zoneId: zoneId,
-        zoneName: zoneName,
-        nearestLandmark: nearestName,
-        mapX: normX,
-        mapY: normY,
-        subtitle: '',
-        updatedAt: DateTime.now(),
-      );
 
       if (_locationController.text.trim().isEmpty || _locationWasAutoFilled) {
-        _locationController.text = matchedLandmark?.name ?? zoneName;
+        _locationController.text =
+            picked.nearestLandmark?.name ?? picked.zoneName;
         _locationWasAutoFilled = true;
       }
     });
@@ -153,8 +114,7 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
     setState(() {
       _neutered = 'Unknown';
       _locationWasAutoFilled = true;
-      _petPin = null;
-      _selectedLandmarkId = null;
+      _pickedLocation = null;
       _pinError = null;
     });
     _controller.clearSelectedImage();
@@ -162,12 +122,12 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
 
   Future<void> _submit() async {
     final formValid = _formKey.currentState?.validate() ?? false;
-    if (_petPin == null) {
+    if (_pickedLocation == null) {
       setState(() {
-        _pinError = 'Tap the campus map to pin where the cat was spotted.';
+        _pinError = 'Please tap the map to pin where the cat was spotted.';
       });
     }
-    if (!formValid || _petPin == null) return;
+    if (!formValid || _pickedLocation == null) return;
 
     final matches = await _controller.checkDuplicates(
       name: _nameController.text,
@@ -193,10 +153,10 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
       neutered: _neutered,
       vaccination: _vaccinationController.text,
       condition: _conditionController.text,
-      mapX: _petPin!.mapX,
-      mapY: _petPin!.mapY,
-      zoneId: _petPin!.zoneId,
-      landmarkId: _selectedLandmarkId,
+      mapX: _pickedLocation!.mapX,
+      mapY: _pickedLocation!.mapY,
+      zoneId: _pickedLocation!.zoneId,
+      landmarkId: _pickedLocation!.nearestLandmark?.id,
     );
     if (!mounted) return;
 
@@ -206,93 +166,6 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
     } else {
       _showMessage(_controller.errorMessage ?? 'Registration failed.');
     }
-  }
-
-  Widget _buildMapPreviewCard() {
-    final pin = _petPin;
-    final caption = pin == null
-        ? 'Tap map to pin pet location'
-        : 'Pinned${pin.nearestLandmark != null ? ' near ${pin.nearestLandmark}' : ''} '
-            '(${pin.mapX.toStringAsFixed(2)}, ${pin.mapY.toStringAsFixed(2)}) • Tap to adjust';
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          InkWell(
-            onTap: _controller.isLoading ? null : _openMapPickerOverlay,
-            borderRadius: BorderRadius.circular(8),
-            child: Ink(
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: _pinError != null
-                      ? Theme.of(context).colorScheme.error
-                      : Theme.of(context).dividerColor,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(
-                      height: 220,
-                      child: IgnorePointer(
-                        child: CampusMapCanvas(
-                          pins: pin != null ? [pin] : const [],
-                          placementMode: PinPlacementMode.none,
-                          showModeToggle: false,
-                          landmarks: _landmarks,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            pin == null
-                                ? Icons.add_location_alt_outlined
-                                : Icons.location_on,
-                            size: 18,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              caption,
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ),
-                          const Icon(Icons.open_in_full, size: 16),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_pinError != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              _pinError!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-            ),
-          ],
-        ],
-      ),
-    );
   }
 
   Widget _buildRegisterTab() {
@@ -319,12 +192,26 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
               maxLines: 6,
               keyboardType: TextInputType.multiline,
             ),
-            _buildMapPreviewCard(),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: CampusMapPickerField(
+                value: _pickedLocation,
+                onChanged: _handleLocationPicked,
+                landmarks: _landmarks,
+                existingPins: const [],
+                pinType: PinType.cat,
+                pinTitle: _nameController.text.trim().isEmpty
+                    ? 'New Cat'
+                    : _nameController.text.trim(),
+                overlayTitle: 'Pin Cat Location',
+                errorText: _pinError,
+              ),
+            ),
             TextFormField(
               controller: _locationController,
               decoration: const InputDecoration(
-                labelText: 'Location',
-                hintText: 'Tap the map above to pin location',
+                labelText: 'Location / Specific Spot',
+                hintText: 'Auto-filled from map pin; add spot details if needed',
               ),
               onChanged: (_) => _locationWasAutoFilled = false,
               validator: (v) => (v == null || v.trim().isEmpty)
@@ -393,6 +280,10 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
   }
 
   Widget _buildPetCard(PetModel pet) {
+    final zoneLabel = pet.zoneId != null
+        ? (MapPinModel.zones[pet.zoneId] ?? pet.zoneId!)
+        : null;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -412,6 +303,13 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
             Text('Name: ${pet.name}'),
             Text('Description: ${pet.description}'),
             Text('Location: ${pet.location}'),
+            if (pet.hasPin)
+              Text(
+                'Map Pin: ${zoneLabel ?? 'Pinned'} '
+                '(${pet.mapX!.toStringAsFixed(2)}, ${pet.mapY!.toStringAsFixed(2)})',
+              )
+            else
+              const Text('Map Pin: Not pinned yet'),
             Text('Neutered: ${pet.neutered}'),
             Text('Vaccination: ${pet.vaccination}'),
             Text('Condition: ${pet.condition}'),
@@ -495,87 +393,6 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PetPinPickerOverlay extends StatefulWidget {
-  final MapPinModel? initialPin;
-  final List<CampusLandmark> landmarks;
-
-  const _PetPinPickerOverlay({
-    this.initialPin,
-    required this.landmarks,
-  });
-
-  @override
-  State<_PetPinPickerOverlay> createState() => _PetPinPickerOverlayState();
-}
-
-class _PetPinPickerOverlayState extends State<_PetPinPickerOverlay> {
-  late PinPlacementMode _placementMode;
-  MapPinModel? _draftPin;
-
-  @override
-  void initState() {
-    super.initState();
-    // If editing an existing pin, show it immediately in tapToPin; otherwise start in centerPin
-    if (widget.initialPin != null) {
-      _placementMode = PinPlacementMode.tapToPin;
-      _draftPin = widget.initialPin;
-    } else {
-      _placementMode = PinPlacementMode.centerPin;
-    }
-  }
-
-  void _handlePlacementModeChanged(PinPlacementMode mode) {
-    setState(() {
-      _placementMode = mode;
-      if (mode != PinPlacementMode.tapToPin) {
-        _draftPin = null;
-      }
-    });
-  }
-
-  void _handleDraftChanged(double normX, double normY) {
-    final (zoneId, zoneName) = MapPinModel.detectZone(normX, normY);
-    final nearestName =
-        MapPinModel.findNearestLandmark(normX, normY, widget.landmarks);
-    setState(() {
-      _draftPin = MapPinModel(
-        id: 'draft_pet_pin',
-        type: PinType.cat,
-        title: '',
-        zoneId: zoneId,
-        zoneName: zoneName,
-        nearestLandmark: nearestName,
-        mapX: normX,
-        mapY: normY,
-        subtitle: '',
-        updatedAt: DateTime.now(),
-      );
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pin Cat Location'),
-      ),
-      body: CampusMapCanvas(
-        pins: const [],
-        draftPin: _draftPin,
-        placementMode: _placementMode,
-        landmarks: widget.landmarks,
-        showModeToggle: true,
-        confirmButtonLabel: 'Confirm Pin Location',
-        onPlacementModeChanged: _handlePlacementModeChanged,
-        onDraftChanged: _handleDraftChanged,
-        onConfirmedLocation: (normX, normY) {
-          Navigator.of(context).pop((normX, normY));
-        },
       ),
     );
   }
