@@ -63,7 +63,7 @@ class _CampusMapCanvasState extends State<CampusMapCanvas> {
     if (_mapSize <= 1 || _viewportHeight <= 1 || _viewportWidth <= 1) return;
 
     final inverse = Matrix4.inverted(_transformController.value);
-    final viewportCenter = Offset(_mapSize / 2, _mapSize / 2);
+    final viewportCenter = Offset(_viewportWidth / 2, _viewportHeight / 2);
     final mapPoint = MatrixUtils.transformPoint(inverse, viewportCenter);
 
     final nx = (mapPoint.dx / _mapSize).clamp(0.0, 1.0);
