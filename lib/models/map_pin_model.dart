@@ -1,4 +1,4 @@
-enum PinType { bowl,cat }
+enum PinType { bowl, cat }
 
 enum PinPlacementMode { none, centerPin, tapToPin }
 
@@ -14,8 +14,27 @@ class CampusLandmark {
     required this.name,
     required this.zoneId,
     required this.mapX,
-    required this.mapY
+    required this.mapY,
   });
+}
+
+class _ZoneBounds {
+  final String zoneId;
+  final double minX;
+  final double minY;
+  final double maxX;
+  final double maxY;
+
+  const _ZoneBounds({
+    required this.zoneId,
+    required this.minX,
+    required this.minY,
+    required this.maxX,
+    required this.maxY,
+  });
+
+  bool contains(double x, double y) =>
+      x >= minX && x <= maxX && y >= minY && y <= maxY;
 }
 
 class MapPinModel {
@@ -47,36 +66,53 @@ class MapPinModel {
     required this.updatedAt,
   });
 
+  static const String otherZoneId = 'other_feeding_areas';
+
   static const Map<String, String> zones = {
-    'zone_1_nw' : 'Zone 1 | P. Noval - Dapitan',
-    'zone_2_nc' : 'Zone 2 | Central North (Main & Library)',
-    'zone_3_ne' : 'Zone 3 | Lacson - Dapitan (Hospital)',
-    'zone_4_sw' : 'Zone 4 | P. Noval - Espana (Field & BGPOP)',
-    'zone_5_sc' : 'Zone 5 | Central South (Benavides Garden)',
-    'zone_6_se' : 'Zone 6 | Lacson - Espana (Carpark & Engineering)',
+    'area_1': 'Area 1 | San Martin De Porres',
+    'area_2': 'Area 2 | BGPOP',
+    'area_3': 'Area 3 | Botanical Garden, TARC',
+    'area_4': 'Area 4 | St. Raymunds Penafort',
+    'area_5': 'Area 5 | Roque Ruano, Quadricentennial Pavilion',
+    otherZoneId: 'Other feeding areas',
   };
 
-  static (String zoneid, String zoneName) detectZone(double x, double y) {
-    final isNorth = y < 0.5;
+  /// Normalized (0.0–1.0) bounding boxes matching the 5 black borders on the map.
+  static const List<_ZoneBounds> _areaBounds = [
+    // Area 1: Top-Right (San Martin De Porres)
+    _ZoneBounds(zoneId: 'area_1', minX: 0.660, minY: 0.106, maxX: 0.835, maxY: 0.326),
+    // Area 2: Bottom-Left (BGPOP, UST Field, Beato Angelico, P. Noval Court)
+    _ZoneBounds(zoneId: 'area_2', minX: 0.085, minY: 0.453, maxX: 0.386, maxY: 0.903),
+    // Area 3: Top-Left (Botanical Garden, TARC, Church, Benavides Bldg, etc.)
+    _ZoneBounds(zoneId: 'area_3', minX: 0.085, minY: 0.110, maxX: 0.376, maxY: 0.448),
+    // Area 4: Top-Center (St. Raymunds Penafort, Library, Q-Park, Henry Sy, Tan Yan Kee)
+    _ZoneBounds(zoneId: 'area_4', minX: 0.400, minY: 0.120, maxX: 0.656, maxY: 0.336),
+    // Area 5: Bottom-Right (Roque Ruano, Quadricentennial Pavilion, Carpark, Gym, Albertus)
+    _ZoneBounds(zoneId: 'area_5', minX: 0.583, minY: 0.518, maxX: 0.895, maxY: 0.903),
+  ];
 
-    if (x < 0.39) {
-      return isNorth ? ('zone_1_nw', zones['zone_1_nw']!) : ('zone_4_sw', zones['zone_4_sw']!);
-    } else if (x < 0.57) {
-      return isNorth ? ('zone_2_nc', zones['zone_2_nc']!) : ('zone_5_sc', zones['zone_5_sc']!);
-    } else {
-      return isNorth ? ('zone_3_ne', zones['zone_3_ne']!) : ('zone_6_se', zones['zone_6_se']!);
+  static (String zoneId, String zoneName) detectZone(double x, double y) {
+    for (final bounds in _areaBounds) {
+      if (bounds.contains(x, y)) {
+        return (bounds.zoneId, zones[bounds.zoneId]!);
+      }
     }
+    return (otherZoneId, zones[otherZoneId]!);
   }
 
-  static String? findNearestLandmark(double x, double y, List<CampusLandmark> landmarks) {
+  static String? findNearestLandmark(
+    double x,
+    double y,
+    List<CampusLandmark> landmarks,
+  ) {
     if (landmarks.isEmpty) return null;
     CampusLandmark? closest;
-    double bestDistanceSquared = double.infinity; //classic minimization loop trust
+    double bestDistanceSquared = double.infinity;
 
-    for (final landmark in landmarks ) {
+    for (final landmark in landmarks) {
       final distanceX = landmark.mapX - x;
       final distanceY = landmark.mapY - y;
-      final distanceSquared = (distanceX * distanceX) + (distanceY * distanceY); //who cares about dart:math am I right?
+      final distanceSquared = (distanceX * distanceX) + (distanceY * distanceY);
       if (distanceSquared < bestDistanceSquared) {
         bestDistanceSquared = distanceSquared;
         closest = landmark;
