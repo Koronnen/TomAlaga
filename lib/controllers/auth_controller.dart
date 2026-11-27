@@ -75,30 +75,43 @@ class AuthController {
     if (refreshedUser != null && refreshedUser.emailVerified) {
       await refreshedUser.getIdToken(true);
 
-      final newUser = AppUser(
-        uid: refreshedUser.uid,
-        email: refreshedUser.email ?? '',
-        role: 'volunteer',
-        completedQuestsCount: 0,
-        careIndex: 0,
-      );
+      final userDocRef = _firestore.collection('users').doc(refreshedUser.uid);
+      final existingDoc = await userDocRef.get();
 
-      await _firestore
-          .collection('users')
-          .doc(refreshedUser.uid)
-          .set(newUser.toMap());
+      if (!existingDoc.exists) {
+        final newUser = AppUser(
+          uid: refreshedUser.uid,
+          email: refreshedUser.email ?? '',
+          role: 'volunteer',
+          isSuspended: false,
+          completedQuestsCount: 0,
+          careIndex: 0,
+        );
+        await userDocRef.set(newUser.toMap());
+      }
 
       return true;
     }
     return false;
   }
 
-  @Deprecated(
-      'Use CareIndexController.awardPoints instead. This method skips the '
-      'care_index_logs audit trail and the completedQuestsCount update.')
   Future<void> incrementCareIndex(String uid, int points) async {
     await _firestore.collection('users').doc(uid).update({
       'careIndex': FieldValue.increment(points),
+    });
+  }
+
+  Future<void> applyCarePenalty(String uid, int penaltyPoints) async {
+    final userRef = _firestore.collection('users').doc(uid);
+
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(userRef);
+      if (!snapshot.exists) return;
+
+      final currentScore = (snapshot.data()?['careIndex'] ?? 0) as int;
+      final updatedScore = (currentScore - penaltyPoints).clamp(0, 999999);
+
+      transaction.update(userRef, {'careIndex': updatedScore});
     });
   }
 
@@ -114,8 +127,14 @@ class AuthController {
         return 'Password must be at least 6 characters long.';
       case 'invalid-email':
         return 'Please enter a valid @ust.edu.ph email address.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Invalid UST email or password.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please wait a moment and try again.';
       default:
-        return e.message ?? 'Sign-up failed. Please try again.';
+        return e.message ?? 'Authentication failed. Please try again.';
     }
   }
 }
