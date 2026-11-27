@@ -4,6 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../controllers/pet_registration_controller.dart';
 import '../models/pet_model.dart';
 import '../views/auth/login_view.dart';
+import '../models/map_pin_model.dart';
+import '../utils/campus_map_landmark_constants.dart';
+import 'map/campus_map_picker.dart';
 
 class PetRegistrationView extends StatefulWidget {
   const PetRegistrationView({super.key});
@@ -24,8 +27,14 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
   final _conditionController = TextEditingController();
 
   static const _neuteredOptions = ['Yes', 'No', 'Unknown'];
+  final List<CampusLandmark> _landmarks =
+      CampusMapLandmarkConstants.ustLandmarks;
 
   String _neutered = 'Unknown';
+  bool _locationWasAutoFilled = true;
+
+  PickedMapLocation? _pickedLocation;
+  String? _pinError;
 
   @override
   void dispose() {
@@ -41,6 +50,19 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
   void _showMessage(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _handleLocationPicked(PickedMapLocation picked) {
+    setState(() {
+      _pickedLocation = picked;
+      _pinError = null;
+
+      if (_locationController.text.trim().isEmpty || _locationWasAutoFilled) {
+        _locationController.text =
+            picked.nearestLandmark?.name ?? picked.zoneName;
+        _locationWasAutoFilled = true;
+      }
+    });
   }
 
   Future<bool> _confirmDuplicates(List<PetModel> matches) async {
@@ -93,12 +115,21 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
     _conditionController.clear();
     setState(() {
       _neutered = 'Unknown';
+      _locationWasAutoFilled = true;
+      _pickedLocation = null;
+      _pinError = null;
     });
     _controller.clearSelectedImage();
   }
 
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final formValid = _formKey.currentState?.validate() ?? false;
+    if (_pickedLocation == null) {
+      setState(() {
+        _pinError = 'Please tap the map to pin where the cat was spotted.';
+      });
+    }
+    if (!formValid || _pickedLocation == null) return;
 
     final matches = await _controller.checkDuplicates(
       name: _nameController.text,
@@ -124,6 +155,10 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
       neutered: _neutered,
       vaccination: _vaccinationController.text,
       condition: _conditionController.text,
+      mapX: _pickedLocation!.mapX,
+      mapY: _pickedLocation!.mapY,
+      zoneId: _pickedLocation!.zoneId,
+      landmarkId: _pickedLocation!.nearestLandmark?.id,
     );
     if (!mounted) return;
 
@@ -215,9 +250,28 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
             SizedBox(height: 20),
             _fieldLabel("Enter the location/area where it was found: "),
             SizedBox(height: 2),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: CampusMapPickerField(
+                value: _pickedLocation,
+                onChanged: _handleLocationPicked,
+                landmarks: _landmarks,
+                existingPins: const [],
+                pinType: PinType.cat,
+                pinTitle: _nameController.text.trim().isEmpty
+                    ? 'New Cat'
+                    : _nameController.text.trim(),
+                overlayTitle: 'Pin Cat Location',
+                errorText: _pinError,
+              ),
+            ),
             TextFormField(
               controller: _locationController,
-              decoration: _inputDecoration(label: 'Location', hint: 'e.g. Albertus Magnus Building'),
+              decoration: _inputDecoration(
+                label: 'Location / Specific Spot',
+                hint: 'Auto-filled from map pin; add spot details if needed',
+              ),
+              onChanged: (_) => _locationWasAutoFilled = false,
               validator: (v) => (v == null || v.trim().isEmpty)
                   ? 'Location is required'
                   : null,
@@ -301,6 +355,10 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
   }
 
   Widget _buildPetCard(PetModel pet) {
+     final zoneLabel = pet.zoneId != null
+        ? (MapPinModel.zones[pet.zoneId] ?? pet.zoneId!)
+        : null;
+
     return Card(
       color: const Color.fromARGB(255, 223, 223, 223),
       elevation: 0,
@@ -350,6 +408,13 @@ class _PetRegistrationViewState extends State<PetRegistrationView> {
               'Location: ${pet.location}',
               style: GoogleFonts.inter(fontSize: 13, color: Colors.black),
             ),
+             if (pet.hasPin)
+              Text(
+                'Map Pin: ${zoneLabel ?? 'Pinned'} '
+                '(${pet.mapX!.toStringAsFixed(2)}, ${pet.mapY!.toStringAsFixed(2)})',
+              )
+            else
+              const Text('Map Pin: Not pinned yet'),
             Text(
               'Neutered: ${pet.neutered}',
               style: GoogleFonts.inter(fontSize: 13, color: Colors.black),

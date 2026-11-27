@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tomalaga/views/auth/login_view.dart';
 import '../../controllers/auth_controller.dart';
-import 'verify_email_view.dart';
 
 class SignUpView extends StatefulWidget {
   const SignUpView({super.key});
@@ -44,11 +43,7 @@ class _SignUpViewState extends State<SignUpView> {
       );
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => VerifyEmailView(controller: _authController),
-        ),
-      );
+      Navigator.of(context).pop();
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
