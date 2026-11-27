@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+
 import '../models/map_pin_model.dart';
 import '../models/pet_model.dart';
 import '../utils/campus_map_landmark_constants.dart';
@@ -11,7 +13,7 @@ class MapController extends ChangeNotifier {
   final FirebaseFirestore _firestore;
 
   MapController({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   MapLayerFilter layerFilter = MapLayerFilter.all;
   String selectedZoneId = 'all';
@@ -64,99 +66,93 @@ class MapController extends ChangeNotifier {
         .where('verificationStatus', isEqualTo: 'verified')
         .snapshots()
         .listen(
-      (snapshot) {
-        _verifiedPetsById.clear();
-        final nextPetPins = <MapPinModel>[];
+          (snapshot) {
+            _verifiedPetsById.clear();
+            final nextPetPins = <MapPinModel>[];
 
-        for (final doc in snapshot.docs) {
-          final pet = PetModel.fromMap(doc.data(), id: doc.id);
-          _verifiedPetsById[doc.id] = pet;
+            for (final doc in snapshot.docs) {
+              final pet = PetModel.fromMap(doc.data(), id: doc.id);
+              _verifiedPetsById[doc.id] = pet;
 
-          if (pet.mapX == null || pet.mapY == null) continue;
+              if (pet.mapX == null || pet.mapY == null) continue;
 
-          final (detectedZoneId, detectedZoneName) =
-              MapPinModel.detectZone(pet.mapX!, pet.mapY!);
-          final resolvedZoneId =
-              (pet.zoneId != null && pet.zoneId!.isNotEmpty)
-                  ? pet.zoneId!
-                  : detectedZoneId;
-          final resolvedZoneName =
-              MapPinModel.zones[resolvedZoneId] ?? detectedZoneName;
-          final nearestLandmark = _resolveLandmarkName(pet) ??
-              MapPinModel.findNearestLandmark(
+              final (detectedZoneId, detectedZoneName) = MapPinModel.detectZone(
                 pet.mapX!,
                 pet.mapY!,
-                landmarks,
               );
+              final resolvedZoneId =
+                  (pet.zoneId != null && pet.zoneId!.isNotEmpty)
+                  ? pet.zoneId!
+                  : detectedZoneId;
+              final resolvedZoneName =
+                  MapPinModel.zones[resolvedZoneId] ?? detectedZoneName;
+              final nearestLandmark =
+                  _resolveLandmarkName(pet) ??
+                  MapPinModel.findNearestLandmark(
+                    pet.mapX!,
+                    pet.mapY!,
+                    landmarks,
+                  );
 
-          final lastSeen = pet.lastUpdated ?? pet.createdAt;
-          final overdueCheck = lastSeen == null ||
-              DateTime.now().difference(lastSeen).inDays >= 7;
+              final lastSeen = pet.lastUpdated ?? pet.createdAt;
+              final overdueCheck =
+                  lastSeen == null ||
+                  DateTime.now().difference(lastSeen).inDays >= 7;
 
-          nextPetPins.add(
-            MapPinModel(
-              id: 'pet_${doc.id}',
-              type: PinType.cat,
-              title: pet.name,
-              zoneId: resolvedZoneId,
-              zoneName: resolvedZoneName,
-              nearestLandmark: nearestLandmark,
-              mapX: pet.mapX!,
-              mapY: pet.mapY!,
-              subtitle: pet.location,
-              linkedPetId: doc.id,
-              needsHealthCheck: overdueCheck,
-              updatedAt: lastSeen ?? DateTime.now(),
-            ),
-          );
-        }
+              nextPetPins.add(
+                MapPinModel(
+                  id: 'pet_${doc.id}',
+                  type: PinType.cat,
+                  title: pet.name,
+                  zoneId: resolvedZoneId,
+                  zoneName: resolvedZoneName,
+                  nearestLandmark: nearestLandmark,
+                  mapX: pet.mapX!,
+                  mapY: pet.mapY!,
+                  subtitle: pet.location,
+                  linkedPetId: doc.id,
+                  needsHealthCheck: overdueCheck,
+                  updatedAt: lastSeen ?? DateTime.now(),
+                ),
+              );
+            }
 
-        _petPins = nextPetPins;
-        isLoading = false;
-        errorMessage = null;
-        notifyListeners();
-      },
-      onError: (err) {
-        isLoading = false;
-        errorMessage = 'Failed to load verified pets: $err';
-        notifyListeners();
-      },
-    );
+            _petPins = nextPetPins;
+            isLoading = false;
+            errorMessage = null;
+            notifyListeners();
+          },
+          onError: (err) {
+            isLoading = false;
+            errorMessage = 'Failed to load verified pets: $err';
+            notifyListeners();
+          },
+        );
 
     _bowlsSub = _firestore
         .collection('map_pins')
         .where('type', isEqualTo: 'bowl')
         .snapshots()
         .listen(
-      (snapshot) {
-        _bowlPins = snapshot.docs.map((doc) {
-          final data = doc.data();
-          final x = (data['mapX'] as num?)?.toDouble() ?? 0.5;
-          final y = (data['mapY'] as num?)?.toDouble() ?? 0.5;
-          final (zoneId, zoneName) = MapPinModel.detectZone(x, y);
-          return MapPinModel(
-            id: doc.id,
-            type: PinType.bowl,
-            title: (data['title'] ?? 'Feeding Station').toString(),
-            zoneId: (data['zoneId'] ?? zoneId).toString(),
-            zoneName: (data['zone'] ?? zoneName).toString(),
-            nearestLandmark:
-                MapPinModel.findNearestLandmark(x, y, landmarks),
-            mapX: x,
-            mapY: y,
-            subtitle: (data['notes'] ?? '').toString(),
-            updatedAt:
-                (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          );
-        }).toList();
-        notifyListeners();
-      },
-      onError: (err) {
-        isLoading = false;
-        errorMessage = 'Failed to load feeding stations: $err';
-        notifyListeners();
-      },
-    );
+          (snapshot) {
+            _bowlPins = snapshot.docs.map((doc) {
+              final data = doc.data();
+              final updated = data['updatedAt'];
+              return MapPinModel.fromBowlMap(
+                data,
+                id: doc.id,
+                landmarks: landmarks,
+                updatedAt: updated is Timestamp ? updated.toDate() : null,
+              );
+            }).toList();
+            notifyListeners();
+          },
+          onError: (err) {
+            isLoading = false;
+            errorMessage = 'Failed to load feeding stations: $err';
+            notifyListeners();
+          },
+        );
   }
 
   String? _resolveLandmarkName(PetModel pet) {
