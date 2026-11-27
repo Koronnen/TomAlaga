@@ -51,14 +51,6 @@ class _UserProfileState extends State<UserProfile> {
     return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
   }
 
-  Future<void> _handleSignOut() async {
-    await widget.controller.signOut();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginView()),
-    );
-  }
-
   Future<void> _handlePasswordReset(String email) async {
     final confirmed = await showDialog<bool>(
       context: context,
